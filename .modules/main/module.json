@@ -11,14 +11,11 @@
     "includes": ["include"],
     "libraries": [
       "picoquic-core",
-      "picotls-fusion",
       "picoquic-log",
-      "picotls-core",
-      "picotls-minicrypto",
-      "picotls-openssl",
       "crypto",
       "sodium"
-    ]
+    ],
+    "lib-dirs": ["/usr/local/lib"]
   },
 
   "dependencies": {
