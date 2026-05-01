@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "name": "containers",
+    "version": "0.0.0",
+    "priority": 1
+  },
+
+  "code": {
+    "sources": ["**/*.c"],
+    "output": "./bin/containers",
+    "includes": ["include"]
+  },
+
+  "compiler": {
+    "binary": "static-lib"
+  },
+
+  "target": "debug"
+}

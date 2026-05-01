@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "name": "ujson",
+    "version": "0.0.0",
+    "priority": 1
+  },
+
+  "compiler": {
+    "binary": "static-lib"
+  },
+
+  "code": {
+    "sources": ["**/*.c"],
+    "output": "./bin/ujson",
+    "includes": ["include"]
+  },
+
+  "target": "debug"
+}

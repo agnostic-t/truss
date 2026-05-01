@@ -1,0 +1,23 @@
+{
+  "metadata": {
+    "name": "network",
+    "version": "0.0.0",
+    "priority": 2
+  },
+
+  "compiler": {
+    "binary": "static-lib"
+  },
+
+  "dependencies": {
+    "threading": { "version": ">=0.0.0" }
+  },
+
+  "code": {
+    "sources": ["**/*.c"],
+    "output": "./bin/network",
+    "includes": ["include"]
+  },
+
+  "target": "debug"
+}

@@ -1,0 +1,6 @@
+dev
+.cache
+.dev
+.objs
+compile_commands.json
+zed

@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "name": "threading",
+    "version": "0.0.0",
+    "priority": 1
+  },
+
+  "compiler": {
+    "binary": "static-lib"
+  },
+
+  "code": {
+    "sources": ["**/*.c"],
+    "output": "./bin/threading",
+    "includes": ["include"]
+  },
+
+  "target": "debug"
+}

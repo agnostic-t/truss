@@ -1,0 +1,34 @@
+{
+  "metadata": {
+    "name": "main",
+    "version": "0.0.0",
+    "priority": 1000
+  },
+
+  "code": {
+    "sources": ["**/*.c"],
+    "output": "./bin/main",
+    "includes": ["include"],
+    "libraries": [
+      "picoquic-core",
+      "picotls-fusion",
+      "picoquic-log",
+      "picotls-core",
+      "picotls-minicrypto",
+      "picotls-openssl",
+      "crypto",
+      "sodium"
+    ]
+  },
+
+  "dependencies": {
+    "threading": { "version": ">=0.0.0" },
+    "network": { "version": ">=0.0.0" },
+    "containers": { "version": ">=0.0.0" },
+    "quic": { "version": ">=0.0.0" },
+    "ujson": { "version": ">=0.0.0" },
+    "nat": { "version": ">=0.0.0" }
+  },
+
+  "target": "debug"
+}
