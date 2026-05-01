@@ -4,3 +4,6 @@ dev
 .objs
 compile_commands.json
 zed
+*.a
+*.so
+bin
