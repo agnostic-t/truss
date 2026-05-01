@@ -6,7 +6,7 @@
 #ifndef QUIC_HEADER_H
 #define QUIC_HEADER_H
 
-#define QUIC_PROTO "SOTER2_QUIC_PROTO"
+#define QUIC_PROTO "TRUSS_QUIC_PROTO"
 #define QUIC_MTU    1500
 
 #include <stdatomic.h>
