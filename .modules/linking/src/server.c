@@ -29,10 +29,6 @@ int link_server_iter(link_server *serv, int iter_timeout){
     if (!serv) return -1;
 
     int pr = ln_wait_netfd(&serv->p_sock->fd, POLLIN, iter_timeout);
-    if (pr <= 0) return pr;
-
-    uint8_t buf[3]; nnet_fd from;
-    ln_usock_recv(serv->p_sock, buf, 3, &from);
 
     int64_t curr_ms = mt_time_get_millis();
     prot_table_lock(&serv->listing.connected_peers);
@@ -51,6 +47,11 @@ int link_server_iter(link_server *serv, int iter_timeout){
         i++;
     }
     prot_table_unlock(&serv->listing.connected_peers);
+
+    if (pr <= 0) return pr;
+
+    uint8_t buf[3]; nnet_fd from;
+    ln_usock_recv(serv->p_sock, buf, 3, &from);
 
     if (strncmp((char*)buf, "REQ", 3) == 0){
 

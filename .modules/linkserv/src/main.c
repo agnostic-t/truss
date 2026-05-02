@@ -6,7 +6,7 @@ int main(int argc, const char *argv[]){
 
     ln_socket sock;
     ln_usock_new(&sock);
-    ln_usock_bind(&sock, ln_uniq("127.0.0.1", 9001));
+    ln_usock_bind(&sock, ln_uniq("0.0.0.0", 9001));
 
     link_server lserv;
     link_server_init(&lserv, &sock, 5000);
