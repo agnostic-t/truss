@@ -2,6 +2,7 @@
 #include <link/server.h>
 #include <stdio.h>
 #include <sys/poll.h>
+#include <threading/time.h>
 
 int link_server_init(link_server *serv, ln_socket *sock, int64_t dead_timeout){
     if (!serv || !sock) return -1;
@@ -32,6 +33,24 @@ int link_server_iter(link_server *serv, int iter_timeout){
 
     uint8_t buf[3]; nnet_fd from;
     ln_usock_recv(serv->p_sock, buf, 3, &from);
+
+    int64_t curr_ms = mt_time_get_millis();
+    prot_table_lock(&serv->listing.connected_peers);
+    for (size_t i = 0; i < serv->listing.connected_peers.table.array.len; ){
+        dyn_pair *pair = dyn_array_at(&serv->listing.connected_peers.table.array, i);
+        int64_t *time = pair->second;
+
+        if (curr_ms - (*time) >= serv->dead_timeout) {
+            naddr_t *addr = pair->first;
+
+            printf("[db] removing %s:%u due timeout\n", ln_gip(addr), ln_gport(addr));
+            dyn_array_remove(&serv->listing.connected_peers.table.array, i);
+            continue;
+        }
+
+        i++;
+    }
+    prot_table_unlock(&serv->listing.connected_peers);
 
     if (strncmp((char*)buf, "REQ", 3) == 0){
 

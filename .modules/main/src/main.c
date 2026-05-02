@@ -17,7 +17,7 @@ int main(int argc, const char *argv[]){
         {"stun.ekiga.net", 3478}
     };
 
-    naddr_t link_serv = ln_uniq("127.0.0.1", 9001);
+    naddr_t link_serv = ln_uniq("147.45.137.91", 9001);
 
     nat_type nt = nat_parallel_req(
         &sock, stuns, sizeof(stuns) / sizeof(stuns[0])
