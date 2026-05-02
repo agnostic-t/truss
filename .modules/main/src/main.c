@@ -74,17 +74,20 @@ int main(int argc, const char *argv[]){
     printf("[main] will try to connect to %s:%u\n", ln_gip(&peer_addr), ln_gport(&peer_addr));
 
     nnet_fd peer_nfd  = ln_netfdq(&peer_addr);
-    ln_usock_send(&sock, "PCH", 3, &peer_nfd);
+    for (int i = 0; i < 5; i++){
+        ln_usock_send(&sock, "PCH", 3, &peer_nfd);
 
-    if (0 >= ln_wait_netfd(&sock.fd, POLLIN, -1)){
-        fprintf(stderr, "[main][punch] failed to get anything from peer\n");
-        return -1;
+        if (0 >= ln_wait_netfd(&sock.fd, POLLIN, 1000)){
+            fprintf(stderr, "[main][punch] failed to get anything from peer (%i/%i)\n", i + 1, 5);
+            continue;
+        }
+
+        char buf[3];
+        ln_usock_recv(&sock, buf, 3, &peer_nfd);
+        if (strncmp(buf, "ACK", 3) != 0)
+            ln_usock_send(&sock, "ACK", 3, &peer_nfd);
+        break;
     }
-
-    char buf[3];
-    ln_usock_recv(&sock, buf, 3, &peer_nfd);
-    if (strncmp(buf, "ACK", 3) != 0)
-        ln_usock_send(&sock, "ACK", 3, &peer_nfd);
 
     printf("[main] NAT punched\n");
 
