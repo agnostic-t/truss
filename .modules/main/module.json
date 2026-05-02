@@ -29,7 +29,8 @@
     "ujson": { "version": ">=0.0.0" },
     "nat": { "version": ">=0.0.0" },
     "argparse": { "version": ">=0.0.0" },
-    "p2pnet": { "version": ">=0.0.0" }
+    "p2pnet": { "version": ">=0.0.0" },
+    "linking": { "version": ">=0.0.0" }
   },
 
   "target": "debug"

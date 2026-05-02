@@ -9,6 +9,11 @@
     "binary": "static-lib"
   },
 
+  "dependencies": {
+    "network": { "version": ">=0.0.0" },
+    "containers": { "version": ">=0.0.0" }
+  },
+
   "code": {
     "sources": ["**/*.c"],
     "output": "./bin/linking",
