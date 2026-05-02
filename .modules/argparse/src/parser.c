@@ -165,7 +165,7 @@ void argparse_print_help(argparser *parser, const char *prog){
 
         if (!arg->help) continue;
         char _help_msg[350];
-        snprintf(_help_msg, 350, "   %s %s - %s\n", arg->full_ver, arg->short_ver, arg->help);
+        snprintf(_help_msg, 350, "   %s/%s - %s\n", arg->full_ver, arg->short_ver, arg->help);
         uax_ip_strextend(&args_help, _help_msg);
     }
 

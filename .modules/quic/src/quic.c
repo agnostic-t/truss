@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <quic/quic.h>
 #include <stdint.h>
+#include <sys/socket.h>
 
 static int _quic_core_cb(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* bytes, size_t length,
                          picoquic_call_back_event_t fin_or_event, void* ctx, void* stream_ctx);
@@ -42,6 +43,7 @@ int quic_cli_init (quic_core *core, ln_socket *ptr_sock){
     if (0 > mt_evsock_new(&core->incoming_ev)) return -1;
     if (0 > mt_evsock_new(&core->new_session_ev)) return -1;
     if (0 > mt_evsock_new(&core->outgoing_ev)) return -1;
+    if (0 > mt_evsock_new(&core->outgoing_done_ev)) return -1;
 
     core->ptr_sock = ptr_sock;
     core->ctx = picoquic_create(
@@ -178,7 +180,7 @@ int quic_core_recviter(quic_core *core) {
 
     while (true) {
         addr_len = sizeof(from_addr);
-        ssize_t recv_len = recvfrom(core->ptr_sock->fd.rfd, buf, sizeof(buf), 0,
+        ssize_t recv_len = recvfrom(core->ptr_sock->fd.rfd, buf, sizeof(buf), MSG_DONTWAIT,
                           (struct sockaddr*)&from_addr, &addr_len);
 
         if (recv_len < 0) {
@@ -323,7 +325,8 @@ static int _quic_core_cb(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* bytes
                     .msg_len = length,
                     .fin = fin_or_event == picoquic_callback_stream_fin
                 };
-                memcpy(pkt.msg, bytes, length);
+                if (length > 0)
+                    memcpy(pkt.msg, bytes, length);
                 prot_queue_push(&ses->inc_pkts, &pkt);
                 mt_evsock_notify(&core->incoming_ev);
             } else {

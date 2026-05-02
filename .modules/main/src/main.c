@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "qclient.h"
+#include "qserver.h"
+
 int main(int argc, const char *argv[]){
     argparser parser;
     argparse_create(&parser, "quick test for QUIC connection");
@@ -24,9 +27,9 @@ int main(int argc, const char *argv[]){
     }
 
     if (strcmp(arg->value, "client") == 0) {
-
+        client_start();
     } else if (strcmp(arg->value, "server") == 0) {
-
+        server_start();
     } else {
         fprintf(stderr, "unknown type: %s, choose client or server\n", arg->value);
     }
