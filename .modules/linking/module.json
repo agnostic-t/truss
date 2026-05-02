@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "name": "linking",
+    "version": "0.0.0",
+    "priority": 100
+  },
+
+  "compiler": {
+    "binary": "static-lib"
+  },
+
+  "code": {
+    "sources": ["**/*.c"],
+    "output": "./bin/linking",
+    "includes": ["include"]
+  },
+
+  "target": "debug"
+}

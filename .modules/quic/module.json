@@ -17,7 +17,14 @@
   "code": {
     "sources": ["**/*.c"],
     "output": "./bin/quic",
-    "includes": ["include"]
+    "includes": ["include"],
+    "libraries": [
+      "picoquic-core",
+      "picoquic-log",
+      "picotls-core",
+      "picotls-minicrypto",
+      "picotls-openssl"
+    ]
   },
 
   "target": "debug"

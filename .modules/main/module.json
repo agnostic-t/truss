@@ -12,6 +12,9 @@
     "libraries": [
       "picoquic-core",
       "picoquic-log",
+      "picotls-core",
+      "picotls-minicrypto",
+      "picotls-openssl",
       "crypto",
       "sodium"
     ],
@@ -24,7 +27,8 @@
     "containers": { "version": ">=0.0.0" },
     "quic": { "version": ">=0.0.0" },
     "ujson": { "version": ">=0.0.0" },
-    "nat": { "version": ">=0.0.0" }
+    "nat": { "version": ">=0.0.0" },
+    "argparse": { "version": ">=0.0.0" }
   },
 
   "target": "debug"
