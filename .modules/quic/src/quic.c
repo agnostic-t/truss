@@ -74,6 +74,17 @@ int quic_cli_start(quic_core *core) {
     return picoquic_start_client_cnx(core->cnx);
 }
 
+int quic_cli_newsession(quic_core *core, quic_session *session, nnet_fd conn_to) {
+    uint64_t now = mt_time_get_micros_monocoarse();
+    session->cnx = picoquic_create_cnx(core->ctx, picoquic_null_connection_id,
+                                             picoquic_null_connection_id, (struct sockaddr*)&conn_to.addr, now,
+                                             0, NULL, QUIC_PROTO, 1);
+    if (!session->cnx) return -1;
+    if (0 > prot_queue_create(sizeof(quic_pkt), &session->inc_pkts)) return -1;
+
+    return picoquic_start_client_cnx(session->cnx);
+}
+
 // done
 int quic_core_stop(quic_core *core){
     if (!core) return -1;
