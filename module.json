@@ -5,7 +5,8 @@
   },
 
   "dependencies": {
-    "main": { "version": ">=0.0.0" }
+    "main": { "version": ">=0.0.0" },
+    "linkserv": { "version": ">=0.0.0" }
   },
 
   "only-deps": true,
