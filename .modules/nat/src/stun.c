@@ -6,6 +6,8 @@
 #include <string.h>
 #include <sys/poll.h>
 #include <base/prot_array.h>
+#include <threads.h>
+#include <unistd.h>
 
 #define STUN_BINDING_REQUEST  0x0001
 #define STUN_BINDING_RESPONSE 0x0101
@@ -36,24 +38,35 @@ int natp_request_stun(
 
     for(int i=0; i<12; i++) req.id[i] = (uint8_t)(rand() & 0xFF);
 
+    bool success = false;
     nnet_fd stun_fd = ln_netfdq(stun_addr);
-    ssize_t s = sendto(client->fd.rfd, &req, sizeof(req), 0,
-                       (struct sockaddr*)&stun_fd.addr, stun_fd.addr_len);
-    if (s != sizeof(req)){
-        perror("sendto");
+    uint8_t buf[1024] = {0};
+    for (int i = 0; i < 5; i++){
+        ssize_t s = sendto(client->fd.rfd, &req, sizeof(req), 0,
+                        (struct sockaddr*)&stun_fd.addr, stun_fd.addr_len);
+        if (s != sizeof(req)){
+            perror("sendto");
+            return -1;
+        }
+
+        int wait_r = ln_wait_netfd(&client->fd, POLLIN, 1000);
+        if (wait_r <= 0) {
+            sleep(2);
+            fprintf(stderr, "[STUN] attempt %d / %d\n", i + 1, 5);
+            continue;
+        }
+
+        success = true;
+        break;
+    }
+
+    if (!success) {
+        fprintf(stderr, "[STUN] failed to get response from STUN after 5 attempts\n");
         return -1;
     }
 
-    uint8_t buf[1024] = {0};
     struct sockaddr_storage from;
     socklen_t from_len = sizeof(from);
-
-    int wait_r = ln_wait_netfd(&client->fd, POLLIN, 1000);
-    if (wait_r <= 0) {
-        fprintf(stderr, "[STUN] wait timeout/error (r=%d)\n", wait_r);
-        return -1;
-    }
-
     int r = recvfrom(client->fd.rfd, buf, sizeof(buf), 0,
                      (struct sockaddr*)&from, &from_len);
 

@@ -1,43 +1,84 @@
+#include "quic/quic.h"
+#include <netinet/in.h>
+#include <p2pnet/socket.h>
+#include <npunch/nat.h>
 #include <argparse/parser.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "qclient.h"
-#include "qserver.h"
 
 int main(int argc, const char *argv[]){
-    argparser parser;
-    argparse_create(&parser, "quick test for QUIC connection");
+    srand(time(NULL));
 
-    argument *arg = argparse_arg(
-        "-t", "--type",
-        "type of connection `client` or `server`",
-        NULL, true, false, &parser
+    ln_socket sock;
+    ln_usock_new(&sock);
+
+    stun_addr stuns[] = {
+        {"stun.sipnet.ru", 3478},
+        {"stun.ekiga.net", 3478}
+    };
+
+    nat_type nt = nat_parallel_req(
+        &sock, stuns, sizeof(stuns) / sizeof(stuns[0])
     );
 
-    char *error = NULL;
-    if (0 > argparse_pass(&parser, argc, argv, &error)){
-        if (!error) goto fail;
-
-        fprintf(stderr, "[argparse] %s\n", error);
-        free(error);
-
-        goto fail;
+    if (nt == NAT_ERROR){
+        fprintf(stderr, "[main] failed to resolve NAT type\n");
+        ln_usock_close(&sock);
+        return -1;
     }
 
-    if (strcmp(arg->value, "client") == 0) {
-        client_start();
-    } else if (strcmp(arg->value, "server") == 0) {
-        server_start();
-    } else {
-        fprintf(stderr, "unknown type: %s, choose client or server\n", arg->value);
+    printf("[main] NAT type: %s\n", strnattype(nt));
+    if (nt == NAT_SYMMETRIC){
+        fprintf(stderr, "[main] P2P is impossible when NAT is symmetric\n");
+        ln_usock_close(&sock);
+        return -1;
     }
 
-    argparse_end(&parser);
+    char ip[INET_ADDRSTRLEN];
+    int  port;
+    printf("[main] my address: %s:%u\n[main] enter other's ip:port: ", ln_gip(&sock.addr), ln_gport(&sock.addr));
+    scanf("%[^:]:%d", ip, &port);
+    printf("[main] will try to connect to %s:%u\n", ip, port);
+
+    naddr_t peer_addr = ln_uniq(ip, port);
+    nnet_fd peer_nfd  = ln_netfdq(&peer_addr);
+    ln_usock_send(&sock, "PCH", 3, &peer_nfd);
+
+    if (0 >= ln_wait_netfd(&sock.fd, POLLIN, -1)){
+        fprintf(stderr, "[main][punch] failed to get anything from peer\n");
+        return -1;
+    }
+
+    char buf[3];
+    ln_usock_recv(&sock, buf, 3, &peer_nfd);
+    if (strncmp(buf, "ACK", 3) != 0)
+        ln_usock_send(&sock, "ACK", 3, &peer_nfd);
+
+    printf("[main] NAT punched\n");
+
+    p2p_socket ps;
+    if (0 > p2p_sock_create(
+        &ps, &sock, peer_addr, sock.addr,
+        "./keys/cert.pem",
+        "./keys/key.pem"
+    )){ fprintf(stderr, "[main] failed to initiate QUIC core\n"); return -1; }
+
+    printf("[+] QUIC connecting to peer\n");
+    p2p_sock_connect(&ps, -1);
+
+    printf("[+] sending packet to peer\n");
+    quic_pkt pkt = quic_packet(ps.stream_id, (uint8_t*)"hello", 5, true);
+    p2p_sock_send(&ps, &pkt);
+    quic_packet_free(&pkt);
+
+    sleep(1);
+
+    printf("[+] waiting packets from peer\n");
+    quic_pkt recv_pkt;
+    p2p_sock_wait(&ps, -1);
+    p2p_sock_recv(&ps, &recv_pkt);
+
+    printf("[+] got: %.*s\n", (int)recv_pkt.msg_len, (char*)recv_pkt.msg);
+    quic_packet_free(&recv_pkt);
+
+    p2p_sock_close(&ps);
     return 0;
-
-fail:
-    argparse_end(&parser);
-    return -1;
 }

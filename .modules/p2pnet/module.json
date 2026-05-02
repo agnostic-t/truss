@@ -1,0 +1,23 @@
+{
+  "metadata": {
+    "name": "p2pnet",
+    "version": "0.0.0",
+    "priority": 100
+  },
+
+  "compiler": {
+    "binary": "static-lib"
+  },
+
+  "dependencies": {
+    "quic": { "version": ">=0.0.0" }
+  },
+
+  "code": {
+    "sources": ["**/*.c"],
+    "output": "./bin/p2pnet",
+    "includes": ["include"]
+  },
+
+  "target": "debug"
+}

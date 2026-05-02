@@ -6,7 +6,7 @@
   },
 
   "code": {
-    "sources": ["**/*.c"],
+    "sources": ["src/**/*.c"],
     "output": "./bin/main",
     "includes": ["include"],
     "libraries": [
@@ -28,7 +28,8 @@
     "quic": { "version": ">=0.0.0" },
     "ujson": { "version": ">=0.0.0" },
     "nat": { "version": ">=0.0.0" },
-    "argparse": { "version": ">=0.0.0" }
+    "argparse": { "version": ">=0.0.0" },
+    "p2pnet": { "version": ">=0.0.0" }
   },
 
   "target": "debug"
