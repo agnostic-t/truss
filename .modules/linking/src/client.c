@@ -25,12 +25,12 @@ int link_client_end (link_client *cli){
 }
 
 
-int link_client_ask(link_client *cli, const char *request, naddr_t link_serv){
+int link_client_ask(link_client *cli, const char *request, size_t req_len, naddr_t link_serv){
     if (!cli) return -1;
 
     nnet_fd serv = ln_netfdq(&link_serv);
     cli->last_req_serv = serv;
-    ln_usock_send(cli->p_sock, request, strlen(request), &serv);
+    ln_usock_send(cli->p_sock, request, req_len, &serv);
     return 0;
 }
 

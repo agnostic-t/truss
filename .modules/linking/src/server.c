@@ -51,9 +51,9 @@ int link_server_iter(link_server *serv, int iter_timeout){
     if (pr <= 0) return pr;
 
     uint8_t buf[4]; nnet_fd from;
-    ln_usock_recv(serv->p_sock, buf, 4, &from);
+    ssize_t recvl = ln_usock_recv(serv->p_sock, buf, 4, &from);
 
-    if (strncmp((char*)buf, "\x00REQ", 4) == 0){
+    if (recvl == 4 && memcmp(buf, "\x00REQ", 4) == 0){
 
         naddr_t addr = ln_nfd2addr(&from);
         listing_add_peer(&serv->listing, addr);
@@ -70,7 +70,12 @@ int link_server_iter(link_server *serv, int iter_timeout){
             return 2;
         }
 
-        ln_usock_send(serv->p_sock, output, malloced, &from);
+        uint8_t *resp = malloc(malloced + 1);
+        resp[0] = '\x00';
+        memcpy(resp + 1, output, malloced);
+
+        ln_usock_send(serv->p_sock, resp, malloced + 1, &from);
+        free(resp);
         free(output);
     } else {
         ln_usock_send(serv->p_sock, "\x00UNK", 4, &from);

@@ -27,7 +27,7 @@ bool custom_packet_daemon(void *_args){
     printf("[cust_pkt_daemon] requesting linking in server %s:%u\n",
             ln_gip(&ctx->link_server), ln_gport(&ctx->link_server));
 
-    if (0 > link_client_ask(ctx->lcli, "\x00REQ", ctx->link_server)){
+    if (0 > link_client_ask(ctx->lcli, "\x00REQ", 4, ctx->link_server)){
         fprintf(stderr, "[cust_pkt_daemon] failed to make request\n");
         return false;
     }
@@ -78,7 +78,7 @@ void read_udp_socket(run_context *ctx) {
                 .from = from_fd,
                 .size = recv_len - 1
             };
-            memcpy(spack.buf, buf, spack.size);
+            memcpy(spack.buf, buf + 1, spack.size);
 
             prot_queue_push(&ctx->sys_packets, &spack);
             mt_evsock_notify(&ctx->new_pkt);
