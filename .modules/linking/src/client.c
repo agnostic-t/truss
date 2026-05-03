@@ -34,12 +34,8 @@ int link_client_ask(link_client *cli, const char *request, naddr_t link_serv){
     return 0;
 }
 
-int link_client_recv(link_client *cli){
+int link_client_recv(link_client *cli, uint8_t *buf, ssize_t dsize, nnet_fd from){
     if (!cli) return -1;
-
-    uint8_t buf[1200];
-    nnet_fd from;
-    ssize_t dsize = ln_usock_recv(cli->p_sock, buf, 1200, &from);
 
     if (dsize <= 0) {
         fprintf(stderr, "[linkcli] failed to get message\n");
