@@ -4,6 +4,10 @@
 #include <sys/poll.h>
 #include <threading/time.h>
 
+static const uint8_t MSG_REQ[] = {'\x00', 'R', 'E', 'Q'};
+static const uint8_t MSG_ERR[] = {'\x00', 'E', 'R', 'R'};
+static const uint8_t MSG_UNK[] = {'\x00', 'U', 'N', 'K'};
+
 int link_server_init(link_server *serv, ln_socket *sock, int64_t dead_timeout){
     if (!serv || !sock) return -1;
 
@@ -53,7 +57,7 @@ int link_server_iter(link_server *serv, int iter_timeout){
     uint8_t buf[4]; nnet_fd from;
     ssize_t recvl = ln_usock_recv(serv->p_sock, buf, 4, &from);
 
-    if (recvl == 4 && memcmp(buf, "\x00REQ", 4) == 0){
+    if (recvl == 4 && memcmp(buf, MSG_REQ, 4) == 0){
 
         naddr_t addr = ln_nfd2addr(&from);
         listing_add_peer(&serv->listing, addr);
@@ -66,7 +70,7 @@ int link_server_iter(link_server *serv, int iter_timeout){
         uint8_t *output = NULL;
         size_t   malloced = 0;
         if (0 > listing_serial(&serv->listing, &output, &malloced)){
-            ln_usock_send(serv->p_sock, "\x00ERR", 4, &from);
+            ln_usock_send(serv->p_sock, MSG_ERR, 4, &from);
             return 2;
         }
 
@@ -78,7 +82,7 @@ int link_server_iter(link_server *serv, int iter_timeout){
         free(resp);
         free(output);
     } else {
-        ln_usock_send(serv->p_sock, "\x00UNK", 4, &from);
+        ln_usock_send(serv->p_sock, MSG_UNK, 4, &from);
     }
 
     return 1;

@@ -13,7 +13,7 @@ typedef struct {
 int link_client_init(link_client *cli, ln_socket *psock);
 int link_client_end (link_client *cli);
 
-int link_client_ask(link_client *cli, const char *request, size_t req_len, naddr_t link_serv);
+int link_client_ask(link_client *cli, const uint8_t *request, size_t req_len, naddr_t link_serv);
 int link_client_recv(link_client *cli, uint8_t *buf, ssize_t dsize, nnet_fd from);
 
 

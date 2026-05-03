@@ -25,7 +25,7 @@ int link_client_end (link_client *cli){
 }
 
 
-int link_client_ask(link_client *cli, const char *request, size_t req_len, naddr_t link_serv){
+int link_client_ask(link_client *cli, const uint8_t *request, size_t req_len, naddr_t link_serv){
     if (!cli) return -1;
 
     nnet_fd serv = ln_netfdq(&link_serv);
@@ -47,16 +47,19 @@ int link_client_recv(link_client *cli, uint8_t *buf, ssize_t dsize, nnet_fd from
         return 1;
     }
 
+    size_t original = cli->known_list.connected_peers.table.array.len;
     if (0 > listing_deserial(buf, dsize, &cli->known_list, cli->p_sock->addr)){
         fprintf(stderr, "[linkcli] failed to deserial data to peers\n");
         return -1;
     }
 
     prot_table_lock(&cli->known_list.connected_peers);
-    printf(
-        "[linkcli] database is now at size: %zu\n",
-        cli->known_list.connected_peers.table.array.len
-    );
+    if (original != cli->known_list.connected_peers.table.array.len){
+        printf(
+            "[linkcli] database is now at size: %zu\n",
+            cli->known_list.connected_peers.table.array.len
+        );
+    }
     prot_table_unlock(&cli->known_list.connected_peers);
     return 0;
 }

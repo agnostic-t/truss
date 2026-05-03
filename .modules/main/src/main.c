@@ -1,9 +1,35 @@
+#include "link/listing.h"
 #include "quic/quic.h"
 #include "threading/daemons.h"
 #include <link/client.h>
 #include <netinet/in.h>
 #include <p2pnet/socket.h>
 #include <npunch/nat.h>
+
+static const uint8_t MSG_PCH[] = {0x00, 'P', 'C', 'H'};
+static const uint8_t MSG_ACK[] = {0x00, 'A', 'C', 'K'};
+static const uint8_t MSG_REQ[] = {0x00, 'R', 'E', 'Q'};
+
+typedef struct {
+    uint8_t buf[1200];
+    ssize_t size;
+    nnet_fd from;
+} sys_packet;
+
+typedef enum {
+    UNKNOWN_PEER = -1,
+    PUNCHING,
+    PUNCHED,
+    CONNECTED
+} peer_state;
+
+typedef struct {
+    naddr_t    addr;
+    peer_state state;
+    int        attempts;
+
+    int64_t    last_attempt;
+} peer;
 
 typedef struct {
     quic_core   *core;
@@ -13,21 +39,54 @@ typedef struct {
 
     mt_eventsock new_pkt;
     prot_queue   sys_packets;
+
+    prot_table   peers; // naddr_t: peer
 } run_context;
 
-typedef struct {
-    uint8_t buf[1200];
-    ssize_t size;
-    nnet_fd from;
-} sys_packet;
+bool punch_nat_iter(run_context *ctx, const uint8_t *buf, size_t inc_size, naddr_t peer_addr){
+    nnet_fd peer_nfd  = ln_netfdq(&peer_addr);
+
+    peer *pptr = prot_table_get(&ctx->peers, &peer_addr);
+    if (!pptr){
+        fprintf(stderr, "[peers] failed to get peer with addr %s:%u\n", ln_gip(&peer_addr), ln_gport(&peer_addr));
+        return false;
+    }
+
+    if (pptr->attempts >= 5) {
+        fprintf(stderr, "[peers] peer exceeded attempts to connect, removing\n");
+        prot_table_remove(&ctx->peers, &peer_addr);
+        return false;
+    }
+
+    if (pptr->state == PUNCHING){
+        printf("[nat] sending PCH packet\n");
+        ln_usock_send(ctx->psock, MSG_PCH, 4, &peer_nfd);
+        pptr->state = PUNCHED;
+        pptr->attempts++;
+        return true;
+    }
+
+    if (pptr->state == PUNCHED){
+        printf("[nat] got packet from peer in PUNCHED state %s:%u\n", ln_gip(&peer_addr), ln_gport(&peer_addr));
+        if (inc_size == 3 && memcmp(buf, "ACK", 3) != 0){
+            ln_usock_send(ctx->psock, MSG_ACK, 4, &peer_nfd);
+            printf("[nat] sending ACK back\n");
+        }
+
+        pptr->state = CONNECTED;
+        printf("[nat] new peer connected: %s:%u\n", ln_gip(&peer_addr), ln_gport(&peer_addr));
+    }
+
+    return true;
+}
 
 bool custom_packet_daemon(void *_args){
     run_context *ctx = _args;
 
-    printf("[cust_pkt_daemon] requesting linking in server %s:%u\n",
-            ln_gip(&ctx->link_server), ln_gport(&ctx->link_server));
+    // printf("[cust_pkt_daemon] requesting linking in server %s:%u\n",
+    //         ln_gip(&ctx->link_server), ln_gport(&ctx->link_server));
 
-    if (0 > link_client_ask(ctx->lcli, "\x00REQ", 4, ctx->link_server)){
+    if ( 0 > link_client_ask(ctx->lcli, MSG_REQ, 4, ctx->link_server)){
         fprintf(stderr, "[cust_pkt_daemon] failed to make request\n");
         return false;
     }
@@ -41,19 +100,65 @@ bool custom_packet_daemon(void *_args){
     sys_packet spack;
     prot_queue_pop(&ctx->sys_packets, &spack);
 
-    if (0 != link_client_recv(ctx->lcli, spack.buf, spack.size, spack.from)){
+    naddr_t from_addr = ln_nfd2addr(&spack.from);
+    // printf("[cust] packet from %s:%u\n", ln_gip(&from_addr), ln_gport(&from_addr));
+
+    if (ln_addrcmp(&ctx->link_server, &from_addr) && 0 != link_client_recv(ctx->lcli, spack.buf, spack.size, spack.from)){
         fprintf(stderr, "[cust_pkt_daemon] failed to init link connection\n");
         return true;
     }
 
-    naddr_t peer_addr;
-    if (ctx->lcli->known_list.connected_peers.table.array.len != 0){
+    bool peeked = false;
+    naddr_t peer_addr = {0};
+    if (ln_addrcmp(&ctx->link_server, &from_addr) && ctx->lcli->known_list.connected_peers.table.array.len != 0){
         listing_random_pick(&ctx->lcli->known_list, &peer_addr);
+        peeked = true;
     }
 
-    sleep(1);
+    if (peeked && !prot_table_get(&ctx->peers, &peer_addr)) {
+        printf("[main] will try to connect to %s:%u\n", ln_gip(&peer_addr), ln_gport(&peer_addr));
 
-    printf("[main] will try to connect to %s:%u\n", ln_gip(&peer_addr), ln_gport(&peer_addr));
+        peer npeer = {
+            .addr = peer_addr,
+            .attempts = 0,
+            .state = PUNCHING,
+            .last_attempt = mt_time_get_millis_monocoarse()
+        };
+
+        nnet_fd peer_fd = ln_netfdq(&peer_addr);
+
+        prot_table_set(&ctx->peers, &peer_addr, &npeer);
+        punch_nat_iter(ctx, spack.buf, spack.size, peer_addr);
+    }
+
+    if (!peeked && !ln_addrcmp(&from_addr, &ctx->link_server)){
+        punch_nat_iter(ctx, spack.buf, spack.size, from_addr);
+    }
+
+    int64_t now = mt_time_get_millis_monocoarse();
+
+    dyn_pair *pair = NULL;
+    for (size_t inx = 0; (pair = prot_table_iterate(&ctx->peers, &inx)); ){
+        peer *pptr = pair->second;
+        nnet_fd pptr_fd = ln_netfdq(&pptr->addr);
+
+        if (pptr->attempts >= 5) {
+            fprintf(stderr, "[peers] peer exceeded attempts to connect, removing\n");
+            prot_table_remove(&ctx->peers, &peer_addr);
+            inx--;
+            continue;
+        }
+
+        if ((now - pptr->last_attempt) >= 2000 && pptr->state == PUNCHED) {
+            printf("[nat] sending PCH packet\n");
+            ln_usock_send(ctx->psock, MSG_PCH, 4, &pptr_fd);
+            pptr->state = PUNCHED;
+            pptr->attempts++;
+
+            pptr->last_attempt = mt_time_get_millis_monocoarse();
+        }
+    }
+
     return true;
 }
 
@@ -92,7 +197,6 @@ void read_udp_socket(run_context *ctx) {
     }
 }
 
-// make context structutre
 bool custom_quic_core_daemon(void *_args){
     run_context *ctx = _args;
 
@@ -158,6 +262,11 @@ int main(){
         return -1;
     }
 
+    if (0 > prot_table_create(sizeof(naddr_t), sizeof(peer), DYN_OWN_BOTH, &ctx.peers)){
+        fprintf(stderr, "[main] failed to init peers table\n");
+        return -1;
+    }
+
     mdaemon custom_sys, custom_qcore;
     daemon_run(&custom_sys, true, custom_packet_daemon, &ctx);
     daemon_run(&custom_qcore, false, custom_quic_core_daemon, &ctx);
@@ -172,7 +281,6 @@ int main(){
     // wait for connection
     // send/recv "hello"
     // listen for new connections
-
 
     link_client_end(&lcli);
     ln_usock_close(&sock);
