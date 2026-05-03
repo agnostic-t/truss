@@ -1,42 +1,64 @@
 #ifndef P2PNET_SOCKET_H
 #define P2PNET_SOCKET_H
 
-#include <stdbool.h>
-#include <quic/quic.h>
-#include <lownet/udp_sock.h>
-#include <threading/daemons.h>
+#include "link/client.h"
+#include "link/listing.h"
+#include "quic/quic.h"
+#include "events.h"
+#include "threading/daemons.h"
 
-/*
- * QUIC-wrapping structure
- *
- * abstracts server and client to just client
- */
 typedef struct {
-    bool is_qserver;
-    mdaemon daemon;
+    uint8_t buf[1200];
+    ssize_t size;
+    nnet_fd from;
+} p2p_sys_packet;
 
-    int stream_id;
-    quic_core qcore;
-    quic_session *session;
+typedef struct {
+    mt_eventsock new_spack;
+    prot_queue   spackets;
+    int64_t      last_req_time;
 
-    ln_socket *p_sock;
-} p2p_socket;
+    prot_queue   events;
+    mt_eventsock new_event;
 
-int p2p_sock_create(
-    p2p_socket *sock,
-    ln_socket  *usock,
-    naddr_t     peer_addr,
-    naddr_t     my_addr,
+    quic_core   *qcore;
+    ln_socket   *psocket;
+    link_client *lcli;
+} p2p_sock_ctx;
 
-    const char *path_to_certificate,
-    const char *path_to_private_key
+typedef struct {
+    p2p_sock_ctx *rctx;
+    prot_array linking_servers;
+
+    prot_table   known_peers; // naddr_t: p2p_peer
+    mt_eventsock new_client;
+    prot_queue   new_clients;
+
+    mdaemon qcore_daemon;
+    mdaemon custom_handler_daemon;
+} p2p_sock;
+
+int p2p_ctx_init(
+    p2p_sock_ctx *ctx,
+
+    quic_core   *qcore,
+    ln_socket   *psock,
+    link_client *lcli
 );
 
-int p2p_sock_close(p2p_socket *sock);
-int p2p_sock_connect(p2p_socket *sock, int timeout);
+int p2p_sock_init(p2p_sock *sock, p2p_sock_ctx *ctx);
+int p2p_sock_run(p2p_sock *sock);
 
-int p2p_sock_send(p2p_socket *sock, const quic_pkt *pkt);
-int p2p_sock_recv(p2p_socket *sock, quic_pkt *pkt);
-int p2p_sock_wait(p2p_socket *sock, int timeout);
+int p2p_sock_conn_link_serv(p2p_sock *sock, naddr_t link_server);
+int p2p_sock_wait_event(p2p_sock *sock, int timeout);
+int p2p_sock_poll_events(p2p_sock *sock, p2p_sevent *out_event);
+
+int p2p_sock_send(p2p_sock *sock, naddr_t address, quic_pkt data);
+int p2p_sock_wait(p2p_sock *sock, naddr_t address, int timeout);
+int p2p_sock_recv(p2p_sock *sock, naddr_t address, quic_pkt *output);
+int p2p_sock_recvany(p2p_sock *sock, quic_pkt *output);
+
+int p2p_ctx_destroy(p2p_sock_ctx *ctx);
+int p2p_sock_destroy(p2p_sock *sock);
 
 #endif

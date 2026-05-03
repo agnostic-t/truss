@@ -10,7 +10,8 @@
   },
 
   "dependencies": {
-    "quic": { "version": ">=0.0.0" }
+    "quic": { "version": ">=0.0.0" },
+    "linking": { "version": ">=0.0.0" }
   },
 
   "code": {

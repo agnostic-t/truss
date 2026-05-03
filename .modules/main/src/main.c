@@ -39,6 +39,7 @@ typedef struct {
 
     mt_eventsock new_pkt;
     prot_queue   sys_packets;
+    int64_t      last_req_time;
 
     prot_table   peers; // naddr_t: peer
 } run_context;
@@ -82,11 +83,9 @@ bool punch_nat_iter(run_context *ctx, const uint8_t *buf, size_t inc_size, naddr
 
 bool custom_packet_daemon(void *_args){
     run_context *ctx = _args;
+    int64_t now = mt_time_get_millis_monocoarse();
 
-    // printf("[cust_pkt_daemon] requesting linking in server %s:%u\n",
-    //         ln_gip(&ctx->link_server), ln_gport(&ctx->link_server));
-
-    if ( 0 > link_client_ask(ctx->lcli, MSG_REQ, 4, ctx->link_server)){
+    if ( (now - ctx->last_req_time >= 2000) && 0 > link_client_ask(ctx->lcli, MSG_REQ, 4, ctx->link_server)){
         fprintf(stderr, "[cust_pkt_daemon] failed to make request\n");
         return false;
     }
@@ -134,8 +133,6 @@ bool custom_packet_daemon(void *_args){
     if (!peeked && !ln_addrcmp(&from_addr, &ctx->link_server)){
         punch_nat_iter(ctx, spack.buf, spack.size, from_addr);
     }
-
-    int64_t now = mt_time_get_millis_monocoarse();
 
     dyn_pair *pair = NULL;
     for (size_t inx = 0; (pair = prot_table_iterate(&ctx->peers, &inx)); ){
@@ -247,6 +244,7 @@ int main(){
     }
 
     run_context ctx;
+    ctx.last_req_time = 0;
     ctx.link_server = link_serv;
     ctx.psock = &sock;
     ctx.lcli = &lcli;

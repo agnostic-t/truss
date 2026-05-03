@@ -1,95 +1,140 @@
+#include "link/client.h"
+#include "link/listing.h"
+#include "p2pnet/events.h"
+#include "p2pnet/peers.h"
 #include "quic/quic.h"
-#include "threading/daemons.h"
 #include <p2pnet/socket.h>
 
-static bool _quic_core_daemon(void *_args){
-    quic_core *core = _args;
+int p2p_ctx_init(
+    p2p_sock_ctx *ctx,
 
-    while (quic_core_running(core)){
-        quic_core_senditer(core);
-
-        if (quic_wait_recviter(core) > 0) {
-            quic_core_recviter(core);
-        }
-    }
-
-    return false;
-}
-
-int p2p_sock_create(
-    p2p_socket *sock,
-    ln_socket  *usock,
-    naddr_t     peer_addr,
-    naddr_t     my_addr,
-
-    const char *path_to_certificate,
-    const char *path_to_private_key
+    quic_core   *qcore,
+    ln_socket   *psock,
+    link_client *lcli
 ){
+    if (!ctx) return -1;
+
+    ctx->qcore = qcore;
+    ctx->psocket = psock;
+    ctx->lcli = lcli;
+    ctx->last_req_time = 0;
+
+    if (0 > mt_evsock_new(&ctx->new_spack)) return -1;
+    if (0 > mt_evsock_new(&ctx->new_event)) return -1;
+    if (0 > prot_queue_create(sizeof(p2p_sys_packet), &ctx->spackets)) return -1;
+    if (0 > prot_queue_create(sizeof(p2p_sevent), &ctx->events)) return -1;
+
+    return 0;
+}
+
+int p2p_sock_init(p2p_sock *sock, p2p_sock_ctx *ctx){
     if (!sock) return -1;
-    memset(sock, 0, sizeof(p2p_socket));
 
-    nnet_fd nfd1 = ln_netfdq(&peer_addr);
-    nnet_fd nfd2 = ln_netfdq(&my_addr);
+    sock->rctx = ctx;
 
-    sock->p_sock = usock;
-    sock->is_qserver = ln_nfd2hash(&nfd1) > ln_nfd2hash(&nfd2);
-    printf("[p2p] choosen as %s\n", sock->is_qserver ? "server": "client");
-
-    sock->stream_id = sock->is_qserver ? 1 : 0;
-
-    if (sock->is_qserver){
-        printf("[p2p] current server address: %s:%d\n", ln_gip(&usock->addr), ln_gport(&usock->addr));
-        if (0 > quic_serv_init(
-            &sock->qcore,
-            path_to_certificate,
-            path_to_private_key,
-            sock->p_sock)
-        ){ return -1; }
-    } else {
-
-        sock->p_sock->addr = peer_addr;
-        sock->p_sock->fd.addr = nfd1.addr;
-        sock->p_sock->fd.addr_len = nfd1.addr_len;
-        // ln_netfd(&sock->p_sock->addr, &sock->p_sock->fd);
-
-        if (0 > quic_cli_init(
-            &sock->qcore,
-            sock->p_sock)
-        ){ return -1; }
-    }
+    if (0 > mt_evsock_new(&sock->new_client)) return -1;
+    if (0 > prot_array_create(sizeof(naddr_t), &sock->linking_servers)) return -1;
+    if (0 > prot_table_create(sizeof(naddr_t), sizeof(p2p_peer), DYN_OWN_BOTH, &sock->known_peers)) return -1;
+    if (0 > prot_queue_create(sizeof(naddr_t), &sock->new_clients)) return -1;
 
     return 0;
 }
 
-int p2p_sock_close(p2p_socket *sock){
-    quic_core_wait_done(&sock->qcore, -1);
-    quic_core_stop(&sock->qcore);
-    daemon_stop(&sock->daemon);
-    quic_core_clear(&sock->qcore);
+int p2p_ctx_destroy(p2p_sock_ctx *ctx){
+    if (!ctx) return -1;
+
+    mt_evsock_close(&ctx->new_spack);
+    mt_evsock_close(&ctx->new_event);
+    prot_queue_end(&ctx->spackets);
+    prot_queue_end(&ctx->events);
 
     return 0;
 }
 
-int p2p_sock_connect(p2p_socket *sock, int timeout){
-    if (!sock->is_qserver){
-        if (0 > quic_cli_start(&sock->qcore)){
-            return -1;
-        }
-    }
+int p2p_sock_destroy(p2p_sock *sock){
+    if (!sock) return -1;
 
-    daemon_run(&sock->daemon, false, _quic_core_daemon, &sock->qcore);
-    return quic_wait_session(&sock->qcore, &sock->session, timeout);
+    mt_evsock_close(&sock->new_client);
+    prot_queue_end(&sock->new_clients);
+    prot_array_end(&sock->linking_servers);
+    prot_table_end(&sock->known_peers);
+
+    return 0;
+}
+
+static bool _qcore_daemon(void *_args);
+static bool _custom_handler_daemon(void *_args);
+int p2p_sock_run(p2p_sock *sock){
+    ;
+}
+
+int p2p_sock_conn_link_serv(p2p_sock *sock, naddr_t link_server){
+    if (!sock) return -1;
+
+    // add to array address
+
+    return 0;
+}
+
+int p2p_sock_wait_event(p2p_sock *sock, int timeout){
+    if (!sock) return -1;
+
+    // mt_evsock_wait with timeout
+
+    return 0;
+}
+
+int p2p_sock_poll_events(p2p_sock *sock, p2p_sevent *out_event){
+    if (!sock) return -1;
+
+    // if any events present - queue_pop
+
+    return 0;
 }
 
 
-int p2p_sock_send(p2p_socket *sock, const quic_pkt *pkt){
-    return quic_send(&sock->qcore, sock->session, pkt);
+int p2p_sock_send(p2p_sock *sock, naddr_t address, quic_pkt data){
+    if (!sock) return -1;
+
+    // ???
+
+    return 0;
 }
 
-int p2p_sock_recv(p2p_socket *sock, quic_pkt *pkt){
-    return quic_recv(sock->session, pkt);
+int p2p_sock_wait(p2p_sock *sock, naddr_t address, int timeout){
+    if (!sock) return -1;
+
+    // ???
+
+    return 0;
 }
 
-int p2p_sock_wait(p2p_socket *sock, int timeout){
-    return quic_wait_incpkt(&sock->qcore, timeout);
+int p2p_sock_recv(p2p_sock *sock, naddr_t address, quic_pkt *output){
+    if (!sock) return -1;
+
+    // ???
+
+    return 0;
+}
+
+int p2p_sock_recvany(p2p_sock *sock, quic_pkt *output){
+    if (!sock) return -1;
+
+    // ???
+
+    return 0;
+}
+
+// statics
+
+static bool punch_nat_iter(p2p_sock_ctx *ctx, const p2p_sys_packet *spack){
+    ;
+}
+
+static bool _qcore_daemon(void *_args){
+    p2p_sock_ctx *ctx = _args;
+}
+
+static bool _custom_handler_daemon(void *_args){
+    p2p_sock_ctx *ctx = _args;
 }
