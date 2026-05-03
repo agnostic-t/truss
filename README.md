@@ -4,7 +4,13 @@ A good base to start new P2P project, already with needed code infrastructure
 
 ## Building
 
-At first you need to install `axle` build system, than
+At first you need to install all dependencies, you can just run setup script:
+
+```sh
+./setup/full_setup.sh
+```
+
+And than run this command:
 
 ```sh
 axle build .
